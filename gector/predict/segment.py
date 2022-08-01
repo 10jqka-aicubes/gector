@@ -10,7 +10,7 @@ tokenizer = tokenization.FullTokenizer(vocab_file="vocab.txt", do_lower_case=Tru
 
 for line in tqdm(sys.stdin):
     line = line.strip()
-    items = line.split('\t')
+    items = line.split("\t")
 
     line = tokenization.convert_to_unicode(items[0])  # items[1]
     if not line:
@@ -18,5 +18,4 @@ for line in tqdm(sys.stdin):
         continue
 
     tokens = tokenizer.tokenize(line)
-    print(' '.join(tokens))
-
+    print(" ".join(tokens))

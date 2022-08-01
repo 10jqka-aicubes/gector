@@ -6,12 +6,17 @@ import Levenshtein
 import numpy as np
 from tqdm import tqdm
 
-from helpers import write_lines, read_parallel_lines, encode_verb_form, \
-    apply_reverse_transformation, SEQ_DELIMETERS, START_TOKEN
+from helpers import (
+    write_lines,
+    read_parallel_lines,
+    encode_verb_form,
+    apply_reverse_transformation,
+    SEQ_DELIMETERS,
+    START_TOKEN,
+)
 
 
-def perfect_align(t, T, insertions_allowed=0,
-                  cost_function=Levenshtein.distance):
+def perfect_align(t, T, insertions_allowed=0, cost_function=Levenshtein.distance):
     # dp[i, j, k] is a minimal cost of matching first `i` tokens of `t` with
     # first `j` tokens of `T`, after making `k` insertions after last match of
     # token from `t`. In other words t[:i] aligned with T[:j].
@@ -30,12 +35,11 @@ def perfect_align(t, T, insertions_allowed=0,
                     # Given matched sequence of t[:i] and T[:j], match token
                     # t[i] with following tokens T[j:k].
                     for k in range(j, len(T) + 1):
-                        transform = \
-                            apply_transformation(t[i], '   '.join(T[j:k]))
+                        transform = apply_transformation(t[i], "   ".join(T[j:k]))
                         if transform:
                             cost = 0
                         else:
-                            cost = cost_function(t[i], '   '.join(T[j:k]))
+                            cost = cost_function(t[i], "   ".join(T[j:k]))
                         current = dp[i, j, q] + cost
                         if dp[i + 1, k, 0] > current:
                             dp[i + 1, k, 0] = current
@@ -45,7 +49,7 @@ def perfect_align(t, T, insertions_allowed=0,
                     # Given matched sequence of t[:i] and T[:j], create
                     # insertion with following tokens T[j:k].
                     for k in range(j, len(T) + 1):
-                        cost = len('   '.join(T[j:k]))
+                        cost = len("   ".join(T[j:k]))
                         current = dp[i, j, q] + cost
                         if dp[i, k, q + 1] > current:
                             dp[i, k, q + 1] = current
@@ -64,9 +68,9 @@ def perfect_align(t, T, insertions_allowed=0,
             i -= 1
 
         if is_insert:
-            alignment.append(['INSERT', T[j:k], (i, i)])
+            alignment.append(["INSERT", T[j:k], (i, i)])
         else:
-            alignment.append([f'REPLACE_{t[i]}', T[j:k], (i, i + 1)])
+            alignment.append([f"REPLACE_{t[i]}", T[j:k], (i, i + 1)])
 
     assert j == 0
 
@@ -197,33 +201,30 @@ def align_sequences(source_sent, target_sent):
         tag, i1, i2, j1, j2 = diff
         source_part = _split(" ".join(source_tokens[i1:i2]))
         target_part = _split(" ".join(target_tokens[j1:j2]))
-        if tag == 'equal':
+        if tag == "equal":
             continue
-        elif tag == 'delete':
+        elif tag == "delete":
             # delete all words separatly
             for j in range(i2 - i1):
-                edit = [(i1 + j, i1 + j + 1), '$DELETE']
+                edit = [(i1 + j, i1 + j + 1), "$DELETE"]
                 all_edits.append(edit)
-        elif tag == 'insert':
+        elif tag == "insert":
             # append to the previous word
             for target_token in target_part:
                 edit = ((i1 - 1, i1), f"$APPEND_{target_token}")
                 all_edits.append(edit)
         else:
             # check merge first of all
-            edits = apply_merge_transformation(source_part, target_part,
-                                               shift_idx=i1)
+            edits = apply_merge_transformation(source_part, target_part, shift_idx=i1)
             if edits:
                 all_edits.extend(edits)
                 continue
 
             # normalize alignments if need (make them singleton)
-            _, alignments = perfect_align(source_part, target_part,
-                                          insertions_allowed=0)
+            _, alignments = perfect_align(source_part, target_part, insertions_allowed=0)
             for alignment in alignments:
                 new_shift = alignment[2][0]
-                edits = convert_alignments_into_edits(alignment,
-                                                      shift_idx=i1 + new_shift)
+                edits = convert_alignments_into_edits(alignment, shift_idx=i1 + new_shift)
                 all_edits.extend(edits)
 
     # get labels
@@ -253,8 +254,7 @@ def convert_edits_into_labels(source_tokens, all_edits):
         labels = [["$KEEP"] for x in range(total_labels)]
     else:
         for i in range(total_labels):
-            edit_operations = [x[1] for x in all_edits if x[0][0] == i - 1
-                               and x[0][1] == i]
+            edit_operations = [x[1] for x in all_edits if x[0][0] == i - 1 and x[0][1] == i]
             if not edit_operations:
                 labels.append(["$KEEP"])
             else:
@@ -274,12 +274,12 @@ def convert_alignments_into_edits(alignment, shift_idx):
 
     # check splits
     for i in range(1, len(target_tokens)):
-        target_token = " ".join(target_tokens[:i + 1])
+        target_token = " ".join(target_tokens[: i + 1])
         transform = apply_transformation(source_token, target_token)
         if transform:
             edit = [(shift_idx, shift_idx + 1), transform]
             edits.append(edit)
-            target_tokens = target_tokens[i + 1:]
+            target_tokens = target_tokens[i + 1 :]
             for target in target_tokens:
                 edits.append([(shift_idx, shift_idx + 1), f"$APPEND_{target}"])
             return edits
@@ -303,8 +303,7 @@ def convert_alignments_into_edits(alignment, shift_idx):
         edits.append(edit)
     # replace/transform target word
     transform = transforms[min_cost_idx]
-    target = transform if transform is not None \
-        else f"$REPLACE_{target_tokens[min_cost_idx]}"
+    target = transform if transform is not None else f"$REPLACE_{target_tokens[min_cost_idx]}"
     edit = [(shift_idx, 1 + shift_idx), target]
     edits.append(edit)
     # append to this word
@@ -319,10 +318,10 @@ def add_labels_to_the_tokens(source_tokens, labels, delimeters=SEQ_DELIMETERS):
     tokens_with_all_tags = []
     source_tokens_with_start = [START_TOKEN] + source_tokens
     for token, label_list in zip(source_tokens_with_start, labels):
-        all_tags = delimeters['operations'].join(label_list)
-        comb_record = token + delimeters['labels'] + all_tags
+        all_tags = delimeters["operations"].join(label_list)
+        comb_record = token + delimeters["labels"] + all_tags
         tokens_with_all_tags.append(comb_record)
-    return delimeters['tokens'].join(tokens_with_all_tags)
+    return delimeters["tokens"].join(tokens_with_all_tags)
 
 
 def convert_data_from_raw_files(source_file, target_file, output_file, chunk_size, max_len):
@@ -350,8 +349,7 @@ def convert_data_from_raw_files(source_file, target_file, output_file, chunk_siz
             aligned_sent = align_sequences(source_sent, target_sent)
             check_sent = convert_tagged_line(aligned_sent)
 
-        if "".join(check_sent.split()) != "".join(
-                target_sent.split()):
+        if "".join(check_sent.split()) != "".join(target_sent.split()):
             # do it again for debugging
             aligned_sent = align_sequences(source_sent, target_sent)
             check_sent = convert_tagged_line(aligned_sent)
@@ -361,16 +359,14 @@ def convert_data_from_raw_files(source_file, target_file, output_file, chunk_siz
             cnt_total += len(alignments)
             tagged.extend(alignments)
         if len(tagged) > chunk_size:
-            write_lines(output_file, tagged, mode='a')
+            write_lines(output_file, tagged, mode="a")
             tagged = []
 
-    print(f"Overall extracted {cnt_total}. "
-          f"Original TP {cnt_tp}."
-          f" Original TN {cnt_all - cnt_tp}")
+    print(f"Overall extracted {cnt_total}. " f"Original TP {cnt_tp}." f" Original TN {cnt_all - cnt_tp}")
     skipped_rate = skipped / len(source_data)
     print(f"Skipped rate:", skipped_rate)
     if tagged:
-        write_lines(output_file, tagged, 'a')
+        write_lines(output_file, tagged, "a")
 
 
 def convert_labels_into_edits(labels):
@@ -405,7 +401,7 @@ def get_target_sent_by_levels(source_tokens, labels):
                 shift_idx -= 1
             elif label.startswith("$APPEND_"):
                 word = label.replace("$APPEND_", "")
-                target_tokens[target_pos + 1: target_pos + 1] = [word]
+                target_tokens[target_pos + 1 : target_pos + 1] = [word]
                 shift_idx += 1
             elif label.startswith("$REPLACE_"):
                 word = label.replace("$REPLACE_", "")
@@ -418,7 +414,7 @@ def get_target_sent_by_levels(source_tokens, labels):
             elif label.startswith("$MERGE_"):
                 # apply merge only on last stage
                 if level == (max_level - 1):
-                    target_tokens[target_pos + 1: target_pos + 1] = [label]
+                    target_tokens[target_pos + 1 : target_pos + 1] = [label]
                     shift_idx += 1
                 else:
                     rest_edit = [(start + shift_idx, end + shift_idx), [label]]
@@ -433,10 +429,8 @@ def get_target_sent_by_levels(source_tokens, labels):
         relevant_edits = rest_edits[:]
         if level == (max_level - 1):
             leveled_tokens = replace_merge_transforms(leveled_tokens)
-        leveled_labels = convert_edits_into_labels(leveled_tokens,
-                                                   relevant_edits)
-        leveled_target_tokens[level + 1] = {"tokens": leveled_tokens,
-                                            "labels": leveled_labels}
+        leveled_labels = convert_edits_into_labels(leveled_tokens, relevant_edits)
+        leveled_target_tokens[level + 1] = {"tokens": leveled_tokens, "labels": leveled_labels}
 
     target_sentence = " ".join(leveled_target_tokens[max_level]["tokens"])
     return leveled_target_tokens, target_sentence
@@ -453,7 +447,7 @@ def replace_merge_transforms(tokens):
             if target_token.startswith("$MERGE_SWAP") and i in allowed_range:
                 target_tokens[i - 1] = tokens[i + 1]
                 target_tokens[i + 1] = tokens[i - 1]
-                target_tokens[i: i + 1] = []
+                target_tokens[i : i + 1] = []
     target_line = " ".join(target_tokens)
     target_line = target_line.replace(" $MERGE_HYPHEN ", "-")
     target_line = target_line.replace(" $MERGE_SPACE ", "")
@@ -461,11 +455,9 @@ def replace_merge_transforms(tokens):
 
 
 def convert_tagged_line(line, delimeters=SEQ_DELIMETERS):
-    label_del = delimeters['labels']
-    source_tokens = [x.split(label_del)[0]
-                     for x in line.split(delimeters['tokens'])][1:]
-    labels = [x.split(label_del)[1].split(delimeters['operations'])
-              for x in line.split(delimeters['tokens'])]
+    label_del = delimeters["labels"]
+    source_tokens = [x.split(label_del)[0] for x in line.split(delimeters["tokens"])][1:]
+    labels = [x.split(label_del)[1].split(delimeters["operations"]) for x in line.split(delimeters["tokens"])]
     assert len(source_tokens) + 1 == len(labels)
     levels_dict, target_line = get_target_sent_by_levels(source_tokens, labels)
     return target_line
@@ -475,26 +467,14 @@ def main(args):
     convert_data_from_raw_files(args.source, args.target, args.output_file, args.chunk_size, args.max_len)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--source',
-                        help='Path to the source file',
-                        required=True)
-    parser.add_argument('-t', '--target',
-                        help='Path to the target file',
-                        required=True)
-    parser.add_argument('-o', '--output_file',
-                        help='Path to the output file',
-                        required=True)
-    parser.add_argument('--chunk_size',
-                        type=int,
-                        help='Dump each chunk size.',
-                        default=1000000)
+    parser.add_argument("-s", "--source", help="Path to the source file", required=True)
+    parser.add_argument("-t", "--target", help="Path to the target file", required=True)
+    parser.add_argument("-o", "--output_file", help="Path to the output file", required=True)
+    parser.add_argument("--chunk_size", type=int, help="Dump each chunk size.", default=1000000)
 
-    parser.add_argument('-m', '--max_len',
-                        type=int,
-                        help='max sentence length',
-                        default=128)
+    parser.add_argument("-m", "--max_len", type=int, help="max sentence length", default=128)
 
     args = parser.parse_args()
     main(args)

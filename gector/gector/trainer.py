@@ -216,8 +216,7 @@ class Trainer(TrainerBase):
         if checkpointer is not None:
             # We can't easily check if these parameters were passed in, so check against their default values.
             # We don't check against serialization_dir since it is also used by the parent class.
-            if num_serialized_models_to_keep != 20 \
-                    or keep_serialized_model_every_num_seconds is not None:
+            if num_serialized_models_to_keep != 20 or keep_serialized_model_every_num_seconds is not None:
                 raise ConfigurationError(
                     "When passing a custom Checkpointer, you may not also pass in separate checkpointer "
                     "args 'num_serialized_models_to_keep' or 'keep_serialized_model_every_num_seconds'."
@@ -332,33 +331,31 @@ class Trainer(TrainerBase):
             self._batch_num_total += 1
             batch_num_total = self._batch_num_total
 
-            iter_len = self.accumulated_batch_count \
-                if batches_this_epoch <= (num_training_batches - residue) else residue
+            iter_len = (
+                self.accumulated_batch_count if batches_this_epoch <= (num_training_batches - residue) else residue
+            )
 
             if self.cuda_verbose_step is not None and batch_num_total % self.cuda_verbose_step == 0:
-                print(f'Before forward pass - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}')
-                print(f'Before forward pass - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}')
+                print(f"Before forward pass - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}")
+                print(f"Before forward pass - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}")
             try:
                 loss = self.batch_loss(batch_group, for_training=True) / iter_len
             except RuntimeError as e:
                 print(e)
                 for x in batch_group:
-                    all_words = [len(y['words']) for y in x['metadata']]
-                    print(f"Total sents: {len(all_words)}. "
-                          f"Min {min(all_words)}. Max {max(all_words)}")
-                    for elem in ['labels', 'd_tags']:
+                    all_words = [len(y["words"]) for y in x["metadata"]]
+                    print(f"Total sents: {len(all_words)}. " f"Min {min(all_words)}. Max {max(all_words)}")
+                    for elem in ["labels", "d_tags"]:
                         tt = x[elem]
-                        print(
-                            f"{elem} shape {list(tt.shape)} and min {tt.min().item()} and {tt.max().item()}")
+                        print(f"{elem} shape {list(tt.shape)} and min {tt.min().item()} and {tt.max().item()}")
                     for elem in ["bert", "mask", "bert-offsets"]:
-                        tt = x['tokens'][elem]
-                        print(
-                            f"{elem} shape {list(tt.shape)} and min {tt.min().item()} and {tt.max().item()}")
+                        tt = x["tokens"][elem]
+                        print(f"{elem} shape {list(tt.shape)} and min {tt.min().item()} and {tt.max().item()}")
                 raise e
 
             if self.cuda_verbose_step is not None and batch_num_total % self.cuda_verbose_step == 0:
-                print(f'After forward pass - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}')
-                print(f'After forward pass - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}')
+                print(f"After forward pass - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}")
+                print(f"After forward pass - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}")
 
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
@@ -366,8 +363,8 @@ class Trainer(TrainerBase):
             loss.backward()
 
             if self.cuda_verbose_step is not None and batch_num_total % self.cuda_verbose_step == 0:
-                print(f'After backprop - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}')
-                print(f'After backprop - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}')
+                print(f"After backprop - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}")
+                print(f"After backprop - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}")
 
             train_loss += loss.item() * iter_len
 
@@ -375,8 +372,8 @@ class Trainer(TrainerBase):
             torch.cuda.empty_cache()
 
             if self.cuda_verbose_step is not None and batch_num_total % self.cuda_verbose_step == 0:
-                print(f'After collecting garbage - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}')
-                print(f'After collecting garbage - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}')
+                print(f"After collecting garbage - Cuda memory allocated: {torch.cuda.memory_allocated() / 1e9}")
+                print(f"After collecting garbage - Cuda memory cached: {torch.cuda.memory_cached() / 1e9}")
 
             batch_grad_norm = self.rescale_gradients()
 
@@ -391,24 +388,17 @@ class Trainer(TrainerBase):
                 # get the magnitude of parameter updates for logging
                 # We need a copy of current parameters to compute magnitude of updates,
                 # and copy them to CPU so large models won't go OOM on the GPU.
-                param_updates = {
-                    name: param.detach().cpu().clone()
-                    for name, param in self.model.named_parameters()
-                }
-                if batches_this_epoch % self.accumulated_batch_count == 0 or \
-                        batches_this_epoch == num_training_batches:
+                param_updates = {name: param.detach().cpu().clone() for name, param in self.model.named_parameters()}
+                if batches_this_epoch % self.accumulated_batch_count == 0 or batches_this_epoch == num_training_batches:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                 for name, param in self.model.named_parameters():
                     param_updates[name].sub_(param.detach().cpu())
                     update_norm = torch.norm(param_updates[name].view(-1))
                     param_norm = torch.norm(param.view(-1)).cpu()
-                    self._tensorboard.add_train_scalar(
-                        "gradient_update/" + name, update_norm / (param_norm + 1e-7)
-                    )
+                    self._tensorboard.add_train_scalar("gradient_update/" + name, update_norm / (param_norm + 1e-7))
             else:
-                if batches_this_epoch % self.accumulated_batch_count == 0 or \
-                        batches_this_epoch == num_training_batches:
+                if batches_this_epoch % self.accumulated_batch_count == 0 or batches_this_epoch == num_training_batches:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
 
@@ -443,13 +433,9 @@ class Trainer(TrainerBase):
                     self._tensorboard.add_train_scalar("mean_batch_size", average)
 
             # Save model if needed.
-            if self._model_save_interval is not None and (
-                time.time() - last_save_time > self._model_save_interval
-            ):
+            if self._model_save_interval is not None and (time.time() - last_save_time > self._model_save_interval):
                 last_save_time = time.time()
-                self._save_checkpoint(
-                    "{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time)))
-                )
+                self._save_checkpoint("{0}.{1}".format(epoch, training_util.time_to_str(int(last_save_time))))
 
         metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, reset=True)
         metrics["cpu_memory_MB"] = peak_cpu_usage
@@ -471,24 +457,22 @@ class Trainer(TrainerBase):
 
         if self._validation_iterator is not None:
             val_iterator = self._validation_iterator
-            print('validation is not None')
+            print("validation is not None")
         else:
             val_iterator = self.iterator
-            print('validation is None')
+            print("validation is None")
 
         num_gpus = len(self._cuda_devices)
 
         raw_val_generator = val_iterator(self._validation_data, num_epochs=1, shuffle=False)
         val_generator = lazy_groups_of(raw_val_generator, num_gpus)
-        num_validation_batches = math.ceil(
-            val_iterator.get_num_batches(self._validation_data) / num_gpus
-        )
-        print('_validation_data_len', len(self._validation_data))
-        print('num_validation_batches', num_validation_batches)
+        num_validation_batches = math.ceil(val_iterator.get_num_batches(self._validation_data) / num_gpus)
+        print("_validation_data_len", len(self._validation_data))
+        print("num_validation_batches", num_validation_batches)
         val_generator_tqdm = Tqdm.tqdm(val_generator, total=num_validation_batches)
         batches_this_epoch = 0
         val_loss = 0
-        print('valid', 1)
+        print("valid", 1)
         for batch_group in val_generator_tqdm:
 
             loss = self.batch_loss(batch_group, for_training=False)
@@ -506,7 +490,7 @@ class Trainer(TrainerBase):
             description = training_util.description_from_metrics(val_metrics)
             val_generator_tqdm.set_description(description, refresh=False)
 
-        print('valid', 2)
+        print("valid", 2)
         # Now restore the original parameter values.
         if self._moving_average is not None:
             self._moving_average.restore()
@@ -539,10 +523,10 @@ class Trainer(TrainerBase):
         training_start_time = time.time()
 
         if self.cold_step_count > 0:
-            base_lr = self.optimizer.param_groups[0]['lr']
+            base_lr = self.optimizer.param_groups[0]["lr"]
             for param_group in self.optimizer.param_groups:
-                param_group['lr'] = self.cold_lr
-            self.model.text_field_embedder._token_embedders['bert'].set_weights(freeze=True)
+                param_group["lr"] = self.cold_lr
+            self.model.text_field_embedder._token_embedders["bert"].set_weights(freeze=True)
 
         metrics["best_epoch"] = self._metric_tracker.best_epoch
         for key, value in self._metric_tracker.best_epoch_metrics.items():
@@ -551,13 +535,13 @@ class Trainer(TrainerBase):
         for epoch in range(epoch_counter, self._num_epochs):
             if epoch == self.cold_step_count and epoch != 0:
                 for param_group in self.optimizer.param_groups:
-                    param_group['lr'] = base_lr
-                self.model.text_field_embedder._token_embedders['bert'].set_weights(freeze=False)
+                    param_group["lr"] = base_lr
+                self.model.text_field_embedder._token_embedders["bert"].set_weights(freeze=False)
 
-            print('epoch', epoch, 1)
+            print("epoch", epoch, 1)
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
-            print('epoch', epoch, 2)
+            print("epoch", epoch, 2)
 
             # get peak of memory usage
             if "cpu_memory_MB" in train_metrics:
@@ -568,16 +552,14 @@ class Trainer(TrainerBase):
                 if key.startswith("gpu_"):
                     metrics["peak_" + key] = max(metrics.get("peak_" + key, 0), value)
 
-            print('epoch', epoch, 3)
+            print("epoch", epoch, 3)
             # clear cache before validation
             torch.cuda.empty_cache()
             if self._validation_data is not None:
                 with torch.no_grad():
                     # We have a validation set, so compute all the metrics on it.
                     val_loss, num_batches = self._validation_loss()
-                    val_metrics = training_util.get_metrics(
-                        self.model, val_loss, num_batches, reset=True
-                    )
+                    val_metrics = training_util.get_metrics(self.model, val_loss, num_batches, reset=True)
 
                     # Check validation metric for early stopping
                     this_epoch_val_metric = val_metrics[self._validation_metric]
@@ -588,7 +570,7 @@ class Trainer(TrainerBase):
                         print("************TEST********")
                         break
 
-            print('epoch', epoch, 4)
+            print("epoch", epoch, 4)
 
             self._tensorboard.log_metrics(
                 train_metrics, val_metrics=val_metrics, log_to_console=True, epoch=epoch + 1
@@ -600,7 +582,7 @@ class Trainer(TrainerBase):
             metrics["training_start_epoch"] = epoch_counter
             metrics["training_epochs"] = epochs_trained
             metrics["epoch"] = epoch
-            print('epoch', epoch)
+            print("epoch", epoch)
 
             for key, value in train_metrics.items():
                 metrics["training_" + key] = value
@@ -608,7 +590,7 @@ class Trainer(TrainerBase):
                 metrics["validation_" + key] = value
 
             # if self.cold_step_count <= epoch:
-            self.scheduler.step(metrics['validation_loss'])
+            self.scheduler.step(metrics["validation_loss"])
 
             if self._metric_tracker.is_best_so_far():
                 # Update all the best_ metrics.
@@ -620,9 +602,7 @@ class Trainer(TrainerBase):
                 self._metric_tracker.best_epoch_metrics = val_metrics
 
             if self._serialization_dir:
-                dump_metrics(
-                    os.path.join(self._serialization_dir, f"metrics_epoch_{epoch}.json"), metrics
-                )
+                dump_metrics(os.path.join(self._serialization_dir, f"metrics_epoch_{epoch}.json"), metrics)
 
             # The Scheduler API is agnostic to whether your schedule requires a validation metric -
             # if it doesn't, the validation metric passed here is ignored.
@@ -722,8 +702,7 @@ class Trainer(TrainerBase):
 
         self.model.load_state_dict(model_state)
         self.optimizer.load_state_dict(training_state["optimizer"])
-        if self._learning_rate_scheduler is not None \
-                and "learning_rate_scheduler" in training_state:
+        if self._learning_rate_scheduler is not None and "learning_rate_scheduler" in training_state:
             self._learning_rate_scheduler.load_state_dict(training_state["learning_rate_scheduler"])
         if self._momentum_scheduler is not None and "momentum_scheduler" in training_state:
             self._momentum_scheduler.load_state_dict(training_state["momentum_scheduler"])
@@ -788,9 +767,7 @@ class Trainer(TrainerBase):
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))
         if "moving_average" in params:
-            moving_average = MovingAverage.from_params(
-                params.pop("moving_average"), parameters=parameters
-            )
+            moving_average = MovingAverage.from_params(params.pop("moving_average"), parameters=parameters)
         else:
             moving_average = None
 
@@ -804,8 +781,7 @@ class Trainer(TrainerBase):
             momentum_scheduler = None
 
         if "checkpointer" in params:
-            if "keep_serialized_model_every_num_seconds" in params \
-                    or "num_serialized_models_to_keep" in params:
+            if "keep_serialized_model_every_num_seconds" in params or "num_serialized_models_to_keep" in params:
                 raise ConfigurationError(
                     "Checkpointer may be initialized either from the 'checkpointer' key or from the "
                     "keys 'num_serialized_models_to_keep' and 'keep_serialized_model_every_num_seconds'"
@@ -814,9 +790,7 @@ class Trainer(TrainerBase):
             checkpointer = Checkpointer.from_params(params.pop("checkpointer"))
         else:
             num_serialized_models_to_keep = params.pop_int("num_serialized_models_to_keep", 20)
-            keep_serialized_model_every_num_seconds = params.pop_int(
-                "keep_serialized_model_every_num_seconds", None
-            )
+            keep_serialized_model_every_num_seconds = params.pop_int("keep_serialized_model_every_num_seconds", None)
             checkpointer = Checkpointer(
                 serialization_dir=serialization_dir,
                 num_serialized_models_to_keep=num_serialized_models_to_keep,

@@ -7,7 +7,8 @@ import torch
 import torch.nn.functional as F
 from allennlp.modules.token_embedders.token_embedder import TokenEmbedder
 from allennlp.nn import util
-#from transformers import AutoModel, PreTrainedModel
+
+# from transformers import AutoModel, PreTrainedModel
 from transformers import BertModel, PreTrainedModel
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class PretrainedBertModel:
         if model_name in cls._cache:
             return PretrainedBertModel._cache[model_name]
 
-        #model = AutoModel.from_pretrained(model_name)
+        # model = AutoModel.from_pretrained(model_name)
         model = BertModel.from_pretrained(model_name)
         if cache_model:
             cls._cache[model_name] = model
@@ -69,7 +70,7 @@ class BertEmbedder(TokenEmbedder):
         top_layer_only: bool = False,
         max_pieces: int = 512,
         num_start_tokens: int = 1,
-        num_end_tokens: int = 1
+        num_end_tokens: int = 1,
     ) -> None:
         super().__init__()
         # self.bert_model = bert_model
@@ -88,11 +89,7 @@ class BertEmbedder(TokenEmbedder):
     def get_output_dim(self) -> int:
         return self.output_dim
 
-    def forward(
-        self,
-        input_ids: torch.LongTensor,
-        offsets: torch.LongTensor = None
-    ) -> torch.Tensor:
+    def forward(self, input_ids: torch.LongTensor, offsets: torch.LongTensor = None) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -173,9 +170,7 @@ class BertEmbedder(TokenEmbedder):
             first_window = list(range(stride_offset))
 
             max_context_windows = [
-                i
-                for i in range(full_seq_len)
-                if stride_offset - 1 < i % self.max_pieces < stride_offset + stride
+                i for i in range(full_seq_len) if stride_offset - 1 < i % self.max_pieces < stride_offset + stride
             ]
 
             # Lookback what's left, unless it's the whole self.max_pieces window
@@ -215,9 +210,7 @@ class BertEmbedder(TokenEmbedder):
             # offsets is (batch_size, d1, ..., dn, orig_sequence_length)
             offsets2d = util.combine_initial_dims(offsets)
             # now offsets is (batch_size * d1 * ... * dn, orig_sequence_length)
-            range_vector = util.get_range_vector(
-                offsets2d.size(0), device=util.get_device_of(mix)
-            ).unsqueeze(1)
+            range_vector = util.get_range_vector(offsets2d.size(0), device=util.get_device_of(mix)).unsqueeze(1)
             # selected embeddings is also (batch_size * d1 * ... * dn, orig_sequence_length)
             selected_embeddings = mix[range_vector, offsets2d]
 
@@ -258,10 +251,7 @@ class PretrainedBertEmbedder(BertEmbedder):
         for param in model.parameters():
             param.requires_grad = requires_grad
 
-        super().__init__(
-            bert_model=model,
-            top_layer_only=top_layer_only
-        )
+        super().__init__(bert_model=model, top_layer_only=top_layer_only)
 
         if special_tokens_fix:
             try:

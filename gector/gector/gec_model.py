@@ -23,46 +23,49 @@ logger = logging.getLogger(__file__)
 
 
 def get_weights_name(transformer_name, lowercase):
-    if transformer_name == 'bert' and lowercase:
-        return 'bert-base-uncased'
-    if transformer_name == 'bert' and not lowercase:
-        return 'bert-base-cased'
-    if transformer_name == 'distilbert':
+    if transformer_name == "bert" and lowercase:
+        return "bert-base-uncased"
+    if transformer_name == "bert" and not lowercase:
+        return "bert-base-cased"
+    if transformer_name == "distilbert":
         if not lowercase:
-            print('Warning! This model was trained only on uncased sentences.')
-        return 'distilbert-base-uncased'
-    if transformer_name == 'albert':
+            print("Warning! This model was trained only on uncased sentences.")
+        return "distilbert-base-uncased"
+    if transformer_name == "albert":
         if not lowercase:
-            print('Warning! This model was trained only on uncased sentences.')
-        return 'albert-base-v1'
+            print("Warning! This model was trained only on uncased sentences.")
+        return "albert-base-v1"
     if lowercase:
-        print('Warning! This model was trained only on cased sentences.')
-    if transformer_name == 'roberta':
-        return 'roberta-base'
-    if transformer_name == 'gpt2':
-        return 'gpt2'
-    if transformer_name == 'transformerxl':
-        return 'transfo-xl-wt103'
-    if transformer_name == 'xlnet':
-        return 'xlnet-base-cased'
+        print("Warning! This model was trained only on cased sentences.")
+    if transformer_name == "roberta":
+        return "roberta-base"
+    if transformer_name == "gpt2":
+        return "gpt2"
+    if transformer_name == "transformerxl":
+        return "transfo-xl-wt103"
+    if transformer_name == "xlnet":
+        return "xlnet-base-cased"
 
 
 class GecBERTModel(object):
-    def __init__(self, vocab_path=None, model_paths=None,
-                 weigths=None,
-                 max_len=50,
-                 min_len=3,
-                 lowercase_tokens=False,
-                 log=False,
-                 iterations=3,
-                 min_probability=0.0,
-                 model_name='roberta',
-                 special_tokens_fix=1,
-                 is_ensemble=True,
-                 min_error_probability=0.0,
-                 confidence=0,
-                 resolve_cycles=False,
-                 ):
+    def __init__(
+        self,
+        vocab_path=None,
+        model_paths=None,
+        weigths=None,
+        max_len=50,
+        min_len=3,
+        lowercase_tokens=False,
+        log=False,
+        iterations=3,
+        min_probability=0.0,
+        model_name="roberta",
+        special_tokens_fix=1,
+        is_ensemble=True,
+        min_error_probability=0.0,
+        confidence=0,
+        resolve_cycles=False,
+    ):
         self.model_weights = list(map(float, weigths)) if weigths else [1] * len(model_paths)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.max_len = max_len
@@ -80,30 +83,30 @@ class GecBERTModel(object):
         self.indexers = []
         self.models = []
         for model_path in model_paths:
-            #if is_ensemble:
-                #model_name, special_tokens_fix = self._get_model_data(model_path)
-                #weights_name = get_weights_name(model_name, lowercase_tokens)
-            #else:
+            # if is_ensemble:
+            # model_name, special_tokens_fix = self._get_model_data(model_path)
+            # weights_name = get_weights_name(model_name, lowercase_tokens)
+            # else:
             weights_name = model_name
-            print(weights_name, 'weights_name')
+            print(weights_name, "weights_name")
             self.indexers.append(self._get_indexer(weights_name, special_tokens_fix))
-            model = Seq2Labels(vocab=self.vocab,
-                               text_field_embedder=self._get_embbeder(weights_name, special_tokens_fix),
-                               confidence=self.confidence
-                               ).to(self.device)
-            print('model_path', model_path)
+            model = Seq2Labels(
+                vocab=self.vocab,
+                text_field_embedder=self._get_embbeder(weights_name, special_tokens_fix),
+                confidence=self.confidence,
+            ).to(self.device)
+            print("model_path", model_path)
             if torch.cuda.is_available():
                 model.load_state_dict(torch.load(model_path))
             else:
-                model.load_state_dict(torch.load(model_path,
-                                                 map_location=torch.device('cpu')))
+                model.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
             model.eval()
             self.models.append(model)
 
     @staticmethod
     def _get_model_data(model_path):
-        model_name = model_path.split('/')[-1]
-        tr_model, stf = model_name.split('_')[:2]
+        model_name = model_path.split("/")[-1]
+        tr_model, stf = model_name.split("_")[:2]
         return tr_model, int(stf)
 
     def _restore_model(self, input_path):
@@ -117,9 +120,7 @@ class GecBERTModel(object):
                 if torch.cuda.is_available():
                     loaded_model = torch.load(model_path)
                 else:
-                    loaded_model = torch.load(model_path,
-                                              map_location=lambda storage,
-                                                                  loc: storage)
+                    loaded_model = torch.load(model_path, map_location=lambda storage, loc: storage)
             except:
                 print(f"{model_path} is not valid model", file=sys.stderr)
             own_state = self.model.state_dict()
@@ -153,10 +154,10 @@ class GecBERTModel(object):
     def get_token_action(self, token, index, prob, sugg_token):
         """Get lost of suggested actions for token."""
         # cases when we don't need to do anything
-        if prob < self.min_probability or sugg_token in [UNK, PAD, '$KEEP']:
+        if prob < self.min_probability or sugg_token in [UNK, PAD, "$KEEP"]:
             return None
 
-        if sugg_token.startswith('$REPLACE_') or sugg_token.startswith('$TRANSFORM_') or sugg_token == '$DELETE':
+        if sugg_token.startswith("$REPLACE_") or sugg_token.startswith("$TRANSFORM_") or sugg_token == "$DELETE":
             start_pos = index
             end_pos = index + 1
         elif sugg_token.startswith("$APPEND_") or sugg_token.startswith("$MERGE_"):
@@ -165,24 +166,27 @@ class GecBERTModel(object):
 
         if sugg_token == "$DELETE":
             sugg_token_clear = ""
-        elif sugg_token.startswith('$TRANSFORM_') or sugg_token.startswith("$MERGE_"):
+        elif sugg_token.startswith("$TRANSFORM_") or sugg_token.startswith("$MERGE_"):
             sugg_token_clear = sugg_token[:]
         else:
-            sugg_token_clear = sugg_token[sugg_token.index('_') + 1:]
+            sugg_token_clear = sugg_token[sugg_token.index("_") + 1 :]
 
         return start_pos - 1, end_pos - 1, sugg_token_clear, prob
 
     def _get_embbeder(self, weigths_name, special_tokens_fix):
-        embedders = {'bert': PretrainedBertEmbedder(
-            pretrained_model=weigths_name,
-            requires_grad=False,
-            top_layer_only=True,
-            special_tokens_fix=special_tokens_fix)
+        embedders = {
+            "bert": PretrainedBertEmbedder(
+                pretrained_model=weigths_name,
+                requires_grad=False,
+                top_layer_only=True,
+                special_tokens_fix=special_tokens_fix,
+            )
         }
         text_field_embedder = BasicTextFieldEmbedder(
             token_embedders=embedders,
             embedder_to_indexer_map={"bert": ["bert", "bert-offsets"]},
-            allow_unmatched_keys=True)
+            allow_unmatched_keys=True,
+        )
         return text_field_embedder
 
     def _get_indexer(self, weights_name, special_tokens_fix):
@@ -193,9 +197,9 @@ class GecBERTModel(object):
             use_starting_offsets=True,
             truncate_long_sequences=True,
             special_tokens_fix=special_tokens_fix,
-            is_test=True
+            is_test=True,
         )
-        return {'bert': bert_token_indexer}
+        return {"bert": bert_token_indexer}
 
     def preprocess(self, token_batch):
         seq_lens = [len(sequence) for sequence in token_batch if sequence]
@@ -207,8 +211,8 @@ class GecBERTModel(object):
             batch = []
             for sequence in token_batch:
                 tokens = sequence[:max_len]
-                tokens = [Token(token) for token in ['$START'] + tokens]
-                batch.append(Instance({'tokens': TextField(tokens, indexer)}))
+                tokens = [Token(token) for token in ["$START"] + tokens]
+                batch.append(Instance({"tokens": TextField(tokens, indexer)}))
             batch = Batch(batch)
             batch.index_instances(self.vocab)
             batches.append(batch)
@@ -216,19 +220,18 @@ class GecBERTModel(object):
         return batches
 
     def _convert(self, data):
-        all_class_probs = torch.zeros_like(data[0]['class_probabilities_labels'])
-        error_probs = torch.zeros_like(data[0]['max_error_probability'])
+        all_class_probs = torch.zeros_like(data[0]["class_probabilities_labels"])
+        error_probs = torch.zeros_like(data[0]["max_error_probability"])
         for output, weight in zip(data, self.model_weights):
-            all_class_probs += weight * output['class_probabilities_labels'] / sum(self.model_weights)
-            error_probs += weight * output['max_error_probability'] / sum(self.model_weights)
+            all_class_probs += weight * output["class_probabilities_labels"] / sum(self.model_weights)
+            error_probs += weight * output["max_error_probability"] / sum(self.model_weights)
 
         max_vals = torch.max(all_class_probs, dim=-1)
         probs = max_vals[0].tolist()
         idx = max_vals[1].tolist()
         return probs, idx, error_probs.tolist()
 
-    def update_final_batch(self, final_batch, pred_ids, pred_batch,
-                           prev_preds_dict):
+    def update_final_batch(self, final_batch, pred_ids, pred_batch, prev_preds_dict):
         new_pred_ids = []
         total_updated = 0
         for i, orig_id in enumerate(pred_ids):
@@ -248,15 +251,10 @@ class GecBERTModel(object):
                 continue
         return final_batch, new_pred_ids, total_updated
 
-    def postprocess_batch(self, batch, all_probabilities, all_idxs,
-                          error_probs,
-                          max_len=50):
+    def postprocess_batch(self, batch, all_probabilities, all_idxs, error_probs, max_len=50):
         all_results = []
         noop_index = self.vocab.get_token_index("$KEEP", "labels")
-        for tokens, probabilities, idxs, error_prob in zip(batch,
-                                                           all_probabilities,
-                                                           all_idxs,
-                                                           error_probs):
+        for tokens, probabilities, idxs, error_prob in zip(batch, all_probabilities, all_idxs, error_probs):
             length = min(len(tokens), max_len)
             edits = []
 
@@ -280,10 +278,8 @@ class GecBERTModel(object):
                 if idxs[i] == noop_index:
                     continue
 
-                sugg_token = self.vocab.get_token_from_index(idxs[i],
-                                                             namespace='labels')
-                action = self.get_token_action(token, i, probabilities[i],
-                                               sugg_token)
+                sugg_token = self.vocab.get_token_from_index(idxs[i], namespace="labels")
+                action = self.get_token_action(token, i, probabilities[i], sugg_token)
                 if not action:
                     continue
 
@@ -298,8 +294,7 @@ class GecBERTModel(object):
         final_batch = full_batch[:]
         batch_size = len(full_batch)
         prev_preds_dict = {i: [final_batch[i]] for i in range(len(final_batch))}
-        short_ids = [i for i in range(len(full_batch))
-                     if len(full_batch[i]) < self.min_len]
+        short_ids = [i for i in range(len(full_batch)) if len(full_batch[i]) < self.min_len]
         pred_ids = [i for i in range(len(full_batch)) if i not in short_ids]
         total_updates = 0
 
@@ -312,14 +307,11 @@ class GecBERTModel(object):
                 break
             probabilities, idxs, error_probs = self.predict(sequences)
 
-            pred_batch = self.postprocess_batch(orig_batch, probabilities,
-                                                idxs, error_probs)
+            pred_batch = self.postprocess_batch(orig_batch, probabilities, idxs, error_probs)
             if self.log:
                 print(f"Iteration {n_iter + 1}. Predicted {round(100*len(pred_ids)/batch_size, 1)}% of sentences.")
 
-            final_batch, pred_ids, cnt = \
-                self.update_final_batch(final_batch, pred_ids, pred_batch,
-                                        prev_preds_dict)
+            final_batch, pred_ids, cnt = self.update_final_batch(final_batch, pred_ids, pred_batch, prev_preds_dict)
             total_updates += cnt
 
             if not pred_ids:

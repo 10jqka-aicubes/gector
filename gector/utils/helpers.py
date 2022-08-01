@@ -6,9 +6,7 @@ VOCAB_DIR = Path(__file__).resolve().parent.parent / "data"
 PAD = "@@PADDING@@"
 UNK = "@@UNKNOWN@@"
 START_TOKEN = "$START"
-SEQ_DELIMETERS = {"tokens": " ",
-                  "labels": "SEPL|||SEPR",
-                  "operations": "SEPL__SEPR"}
+SEQ_DELIMETERS = {"tokens": " ", "labels": "SEPL|||SEPR", "operations": "SEPL__SEPR"}
 
 
 def get_verb_form_dicts():
@@ -35,14 +33,13 @@ def get_target_sent_by_edits(source_tokens, edits):
     for edit in edits:
         start, end, label, _ = edit
         target_pos = start + shift_idx
-        source_token = target_tokens[target_pos] \
-            if len(target_tokens) > target_pos >= 0 else ''
+        source_token = target_tokens[target_pos] if len(target_tokens) > target_pos >= 0 else ""
         if label == "":
             del target_tokens[target_pos]
             shift_idx -= 1
         elif start == end:
             word = label.replace("$APPEND_", "")
-            target_tokens[target_pos: target_pos] = [word]
+            target_tokens[target_pos:target_pos] = [word]
             shift_idx += 1
         elif label.startswith("$TRANSFORM_"):
             word = apply_reverse_transformation(source_token, label)
@@ -53,7 +50,7 @@ def get_target_sent_by_edits(source_tokens, edits):
             word = label.replace("$REPLACE_", "")
             target_tokens[target_pos] = word
         elif label.startswith("$MERGE_"):
-            target_tokens[target_pos + 1: target_pos + 1] = [label]
+            target_tokens[target_pos + 1 : target_pos + 1] = [label]
             shift_idx += 1
 
     return replace_merge_transforms(target_tokens)
@@ -152,16 +149,16 @@ def read_parallel_lines(fn1, fn2):
 def read_lines(fn, skip_strip=False):
     if not os.path.exists(fn):
         return []
-    with open(fn, 'r', encoding='utf-8') as f:
+    with open(fn, "r", encoding="utf-8") as f:
         lines = f.readlines()
     return [s.strip() for s in lines if s.strip() or skip_strip]
 
 
-def write_lines(fn, lines, mode='w'):
-    if mode == 'w' and os.path.exists(fn):
+def write_lines(fn, lines, mode="w"):
+    if mode == "w" and os.path.exists(fn):
         os.remove(fn)
-    with open(fn, encoding='utf-8', mode=mode) as f:
-        f.writelines(['%s\n' % s for s in lines])
+    with open(fn, encoding="utf-8", mode=mode) as f:
+        f.writelines(["%s\n" % s for s in lines])
 
 
 def decode_verb_form(original):
@@ -179,25 +176,25 @@ def encode_verb_form(original_word, corrected_word):
 
 
 def get_weights_name(transformer_name, lowercase):
-    if transformer_name == 'bert' and lowercase:
-        return 'bert-base-uncased'
-    if transformer_name == 'bert' and not lowercase:
-        return 'bert-base-cased'
-    if transformer_name == 'distilbert':
+    if transformer_name == "bert" and lowercase:
+        return "bert-base-uncased"
+    if transformer_name == "bert" and not lowercase:
+        return "bert-base-cased"
+    if transformer_name == "distilbert":
         if not lowercase:
-            print('Warning! This model was trained only on uncased sentences.')
-        return 'distilbert-base-uncased'
-    if transformer_name == 'albert':
+            print("Warning! This model was trained only on uncased sentences.")
+        return "distilbert-base-uncased"
+    if transformer_name == "albert":
         if not lowercase:
-            print('Warning! This model was trained only on uncased sentences.')
-        return 'albert-base-v1'
+            print("Warning! This model was trained only on uncased sentences.")
+        return "albert-base-v1"
     if lowercase:
-        print('Warning! This model was trained only on cased sentences.')
-    if transformer_name == 'roberta':
-        return 'roberta-base'
-    if transformer_name == 'gpt2':
-        return 'gpt2'
-    if transformer_name == 'transformerxl':
-        return 'transfo-xl-wt103'
-    if transformer_name == 'xlnet':
-        return 'xlnet-base-cased'
+        print("Warning! This model was trained only on cased sentences.")
+    if transformer_name == "roberta":
+        return "roberta-base"
+    if transformer_name == "gpt2":
+        return "gpt2"
+    if transformer_name == "transformerxl":
+        return "transfo-xl-wt103"
+    if transformer_name == "xlnet":
+        return "xlnet-base-cased"

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # TODO(joelgrus): Figure out how to generate token_type_ids out of this token indexer.
 
 # This is the default list of tokens that should not be lowercased.
-_NEVER_LOWERCASE = ['[UNK]', '[SEP]', '[PAD]', '[CLS]', '[MASK]']
+_NEVER_LOWERCASE = ["[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"]
 
 
 class WordpieceIndexer(TokenIndexer[int]):
@@ -66,22 +66,24 @@ class WordpieceIndexer(TokenIndexer[int]):
         See :class:`TokenIndexer`.
     """
 
-    def __init__(self,
-                 vocab: Dict[str, int],
-                 bpe_ranks: Dict,
-                 byte_encoder: Dict,
-                 wordpiece_tokenizer: Callable[[str], List[str]],
-                 namespace: str = "wordpiece",
-                 use_starting_offsets: bool = False,
-                 max_pieces: int = 512,
-                 max_pieces_per_token: int = 3,
-                 is_test=False,
-                 do_lowercase: bool = False,
-                 never_lowercase: List[str] = None,
-                 start_tokens: List[str] = None,
-                 end_tokens: List[str] = None,
-                 truncate_long_sequences: bool = True,
-                 token_min_padding_length: int = 0) -> None:
+    def __init__(
+        self,
+        vocab: Dict[str, int],
+        bpe_ranks: Dict,
+        byte_encoder: Dict,
+        wordpiece_tokenizer: Callable[[str], List[str]],
+        namespace: str = "wordpiece",
+        use_starting_offsets: bool = False,
+        max_pieces: int = 512,
+        max_pieces_per_token: int = 3,
+        is_test=False,
+        do_lowercase: bool = False,
+        never_lowercase: List[str] = None,
+        start_tokens: List[str] = None,
+        end_tokens: List[str] = None,
+        truncate_long_sequences: bool = True,
+        token_min_padding_length: int = 0,
+    ) -> None:
         super().__init__(token_min_padding_length)
         self.vocab = vocab
 
@@ -113,12 +115,12 @@ class WordpieceIndexer(TokenIndexer[int]):
             self._never_lowercase = set(never_lowercase)
 
         # Convert the start_tokens and end_tokens to wordpiece_ids
-        self._start_piece_ids = [vocab[wordpiece]
-                                 for token in (start_tokens or [])
-                                 for wordpiece in wordpiece_tokenizer(token)]
-        self._end_piece_ids = [vocab[wordpiece]
-                               for token in (end_tokens or [])
-                               for wordpiece in wordpiece_tokenizer(token)]
+        self._start_piece_ids = [
+            vocab[wordpiece] for token in (start_tokens or []) for wordpiece in wordpiece_tokenizer(token)
+        ]
+        self._end_piece_ids = [
+            vocab[wordpiece] for token in (end_tokens or []) for wordpiece in wordpiece_tokenizer(token)
+        ]
 
     @overrides
     def count_vocab_items(self, token: Token, counter: Dict[str, Dict[str, int]]):
@@ -153,9 +155,7 @@ class WordpieceIndexer(TokenIndexer[int]):
             return token
 
         while True:
-            bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair,
-                                                                    float(
-                                                                        'inf')))
+            bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float("inf")))
             if bigram not in self.bpe_ranks:
                 break
             first, second = bigram
@@ -182,32 +182,29 @@ class WordpieceIndexer(TokenIndexer[int]):
                 break
             else:
                 pairs = self.get_pairs(word)
-        word = ' '.join(word)
+        word = " ".join(word)
         self.cache[token] = word
         return word
 
     def bpe_tokenize(self, text):
-        """ Tokenize a string."""
+        """Tokenize a string."""
         bpe_tokens = []
         for token in text.split():
-            token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
-            bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(' '))
+            token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
+            bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
         return bpe_tokens
 
     @overrides
-    def tokens_to_indices(self,
-                          tokens: List[Token],
-                          vocabulary: Vocabulary,
-                          index_name: str) -> Dict[str, List[int]]:
+    def tokens_to_indices(self, tokens: List[Token], vocabulary: Vocabulary, index_name: str) -> Dict[str, List[int]]:
         if not self._added_to_vocabulary:
             self._add_encoding_to_vocabulary(vocabulary)
             self._added_to_vocabulary = True
 
         # This lowercases tokens if necessary
-        text = (token.text.lower()
-                if self._do_lowercase and token.text not in self._never_lowercase
-                else token.text
-                for token in tokens)
+        text = (
+            token.text.lower() if self._do_lowercase and token.text not in self._never_lowercase else token.text
+            for token in tokens
+        )
 
         # Obtain a nested sequence of wordpieces, each represented by a list of wordpiece ids
         token_wordpiece_ids = []
@@ -216,7 +213,7 @@ class WordpieceIndexer(TokenIndexer[int]):
                 wps = self.bpe_tokenize(token)
             else:
                 wps = self.wordpiece_tokenizer(token)
-            limited_wps = [self.vocab[wordpiece] for wordpiece in wps][:self.max_pieces_per_token]
+            limited_wps = [self.vocab[wordpiece] for wordpiece in wps][: self.max_pieces_per_token]
             token_wordpiece_ids.append(limited_wps)
 
         # Flattened list of wordpieces. In the end, the output of the model (e.g., BERT) should
@@ -227,10 +224,11 @@ class WordpieceIndexer(TokenIndexer[int]):
 
         # reduce max_pieces_per_token if piece length of sentence is bigger than max_pieces_per_sentence
         # helps to fix CUDA out of memory errors meanwhile increasing batch size
-        while not self.is_test and len(flat_wordpiece_ids) > \
-                self.max_pieces_per_sentence - len(self._start_piece_ids) - len(self._end_piece_ids):
+        while not self.is_test and len(flat_wordpiece_ids) > self.max_pieces_per_sentence - len(
+            self._start_piece_ids
+        ) - len(self._end_piece_ids):
             max_pieces = max([len(row) for row in token_wordpiece_ids])
-            token_wordpiece_ids = [row[:max_pieces - 1] for row in token_wordpiece_ids]
+            token_wordpiece_ids = [row[: max_pieces - 1] for row in token_wordpiece_ids]
             flat_wordpiece_ids = [wordpiece for token in token_wordpiece_ids for wordpiece in token]
 
         # The code below will (possibly) pack the wordpiece sequence into multiple sub-sequences by using a sliding
@@ -283,21 +281,26 @@ class WordpieceIndexer(TokenIndexer[int]):
             # If all the wordpieces fit, then we don't need to do anything special
             wordpiece_windows = [self._add_start_and_end(flat_wordpiece_ids)]
         elif self._truncate_long_sequences:
-            logger.warning("Too many wordpieces, truncating sequence. If you would like a sliding window, set"
-                           "`truncate_long_sequences` to False %s", str([token.text for token in tokens]))
+            logger.warning(
+                "Too many wordpieces, truncating sequence. If you would like a sliding window, set"
+                "`truncate_long_sequences` to False %s",
+                str([token.text for token in tokens]),
+            )
             wordpiece_windows = [self._add_start_and_end(flat_wordpiece_ids[:window_length])]
         else:
             # Create a sliding window of wordpieces of length `max_pieces` that advances by `stride` steps and
             # add start/end wordpieces to each window
             # TODO: this currently does not respect word boundaries, so words may be cut in half between windows
             # However, this would increase complexity, as sequences would need to be padded/unpadded in the middle
-            wordpiece_windows = [self._add_start_and_end(flat_wordpiece_ids[i:i + window_length])
-                                 for i in range(0, len(flat_wordpiece_ids), stride)]
+            wordpiece_windows = [
+                self._add_start_and_end(flat_wordpiece_ids[i : i + window_length])
+                for i in range(0, len(flat_wordpiece_ids), stride)
+            ]
 
             # Check for overlap in the last window. Throw it away if it is redundant.
             last_window = wordpiece_windows[-1][1:]
             penultimate_window = wordpiece_windows[-2]
-            if last_window == penultimate_window[-len(last_window):]:
+            if last_window == penultimate_window[-len(last_window) :]:
                 wordpiece_windows = wordpiece_windows[:-1]
 
         # Flatten the wordpiece windows
@@ -312,9 +315,7 @@ class WordpieceIndexer(TokenIndexer[int]):
         # is captured by the offsets.
         mask = [1 for _ in offsets]
 
-        return {index_name: wordpiece_ids,
-                f"{index_name}-offsets": offsets,
-                "mask": mask}
+        return {index_name: wordpiece_ids, f"{index_name}-offsets": offsets, "mask": mask}
 
     def _add_start_and_end(self, wordpiece_ids: List[int]) -> List[int]:
         return self._start_piece_ids + wordpiece_ids + self._end_piece_ids
@@ -326,9 +327,7 @@ class WordpieceIndexer(TokenIndexer[int]):
         """
         first = token_type_ids[0]
         last = token_type_ids[-1]
-        return ([first for _ in self._start_piece_ids] +
-                token_type_ids +
-                [last for _ in self._end_piece_ids])
+        return [first for _ in self._start_piece_ids] + token_type_ids + [last for _ in self._end_piece_ids]
 
     @overrides
     def get_padding_token(self) -> int:
@@ -339,12 +338,10 @@ class WordpieceIndexer(TokenIndexer[int]):
         return {}
 
     @overrides
-    def pad_token_sequence(self,
-                           tokens: Dict[str, List[int]],
-                           desired_num_tokens: Dict[str, int],
-                           padding_lengths: Dict[str, int]) -> Dict[str, List[int]]:  # pylint: disable=unused-argument
-        return {key: pad_sequence_to_length(val, desired_num_tokens[key])
-                for key, val in tokens.items()}
+    def pad_token_sequence(
+        self, tokens: Dict[str, List[int]], desired_num_tokens: Dict[str, int], padding_lengths: Dict[str, int]
+    ) -> Dict[str, List[int]]:  # pylint: disable=unused-argument
+        return {key: pad_sequence_to_length(val, desired_num_tokens[key]) for key, val in tokens.items()}
 
     @overrides
     def get_keys(self, index_name: str) -> List[str]:
@@ -389,30 +386,31 @@ class PretrainedBertIndexer(WordpieceIndexer):
         sliding window.
     """
 
-    def __init__(self,
-                 pretrained_model: str,
-                 use_starting_offsets: bool = False,
-                 do_lowercase: bool = True,
-                 never_lowercase: List[str] = None,
-                 max_pieces: int = 512,
-                 max_pieces_per_token=5,
-                 is_test=False,
-                 truncate_long_sequences: bool = True,
-                 special_tokens_fix: int = 0) -> None:
+    def __init__(
+        self,
+        pretrained_model: str,
+        use_starting_offsets: bool = False,
+        do_lowercase: bool = True,
+        never_lowercase: List[str] = None,
+        max_pieces: int = 512,
+        max_pieces_per_token=5,
+        is_test=False,
+        truncate_long_sequences: bool = True,
+        special_tokens_fix: int = 0,
+    ) -> None:
         if pretrained_model.endswith("-cased") and do_lowercase:
-            logger.warning("Your BERT model appears to be cased, "
-                           "but your indexer is lowercasing tokens.")
+            logger.warning("Your BERT model appears to be cased, " "but your indexer is lowercasing tokens.")
         elif pretrained_model.endswith("-uncased") and not do_lowercase:
-            logger.warning("Your BERT model appears to be uncased, "
-                           "but your indexer is not lowercasing tokens.")
+            logger.warning("Your BERT model appears to be uncased, " "but your indexer is not lowercasing tokens.")
 
         bert_tokenizer = BertTokenizer.from_pretrained(
-            pretrained_model, do_lower_case=do_lowercase, do_basic_tokenize=True)
+            pretrained_model, do_lower_case=do_lowercase, do_basic_tokenize=True
+        )
 
         # to adjust all tokenizers
-        if hasattr(bert_tokenizer, 'encoder'):
+        if hasattr(bert_tokenizer, "encoder"):
             bert_tokenizer.vocab = bert_tokenizer.encoder
-        if hasattr(bert_tokenizer, 'sp_model'):
+        if hasattr(bert_tokenizer, "sp_model"):
             bert_tokenizer.vocab = defaultdict(lambda: 1)
             for i in range(bert_tokenizer.sp_model.get_piece_size()):
                 bert_tokenizer.vocab[bert_tokenizer.sp_model.id_to_piece(i)] = i
@@ -421,24 +419,26 @@ class PretrainedBertIndexer(WordpieceIndexer):
             bert_tokenizer.add_tokens([START_TOKEN])
             bert_tokenizer.vocab[START_TOKEN] = len(bert_tokenizer) - 1
 
-        #if "roberta" in pretrained_model:
+        # if "roberta" in pretrained_model:
         #    bpe_ranks = bert_tokenizer.bpe_ranks
         #    byte_encoder = bert_tokenizer.byte_encoder
-        #else:
+        # else:
         bpe_ranks = {}
         byte_encoder = None
 
-        super().__init__(vocab=bert_tokenizer.vocab,
-                         bpe_ranks=bpe_ranks,
-                         byte_encoder=byte_encoder,
-                         wordpiece_tokenizer=bert_tokenizer.tokenize,
-                         namespace="bert",
-                         use_starting_offsets=use_starting_offsets,
-                         max_pieces=max_pieces,
-                         max_pieces_per_token=max_pieces_per_token,
-                         is_test=is_test,
-                         do_lowercase=do_lowercase,
-                         never_lowercase=never_lowercase,
-                         start_tokens=["[CLS]"] if not special_tokens_fix else [],
-                         end_tokens=["[SEP]"] if not special_tokens_fix else [],
-                         truncate_long_sequences=truncate_long_sequences)
+        super().__init__(
+            vocab=bert_tokenizer.vocab,
+            bpe_ranks=bpe_ranks,
+            byte_encoder=byte_encoder,
+            wordpiece_tokenizer=bert_tokenizer.tokenize,
+            namespace="bert",
+            use_starting_offsets=use_starting_offsets,
+            max_pieces=max_pieces,
+            max_pieces_per_token=max_pieces_per_token,
+            is_test=is_test,
+            do_lowercase=do_lowercase,
+            never_lowercase=never_lowercase,
+            start_tokens=["[CLS]"] if not special_tokens_fix else [],
+            end_tokens=["[SEP]"] if not special_tokens_fix else [],
+            truncate_long_sequences=truncate_long_sequences,
+        )
