@@ -22,7 +22,7 @@
   ```
   python -m pip install -r requirements.txt
   ```
-- 调整参数配置，参考[模板项目](https://github.com/10jqka-aicubes/project-de6o)的说明
+- 调整参数配置，参考[模板项目](https://github.com/10jqka-aicubes/project-demo)的说明
   - 修改`gector/setting.conf`的路径，比如`TRAIN_FILE_DIR`的值为你存放训练集的位置
   - `gector/train/run.sh`，修改`BASE_MODEL`的值为下载预训练模型的位置
   - `gector/predict/run.sh` 同理
