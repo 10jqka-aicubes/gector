@@ -22,6 +22,7 @@
   ```
   python -m pip install -r requirements.txt
   ```
+- 准备数据，从官网[下载数据](http://contest.aicubes.cn/#/detail?topicId=56)
 - 调整参数配置，参考[模板项目](https://github.com/10jqka-aicubes/project-demo)的说明
   - 修改`gector/setting.conf`的路径，比如`TRAIN_FILE_DIR`的值为你存放训练集的位置
   - `gector/train/run.sh`，修改`BASE_MODEL`的值为下载预训练模型的位置
@@ -42,7 +43,7 @@
 
 ## 反作弊声明
 
-1）参与者不允许在比赛中抄袭他人作品、使用多个小号，经发现将取消成绩；
+1）参与者不允许使用多个小号，经发现将取消成绩；
 
 2）参与者禁止在指定考核技术能力的范围外利用规则漏洞或技术漏洞等途径提高成绩排名，经发现将取消成绩；
 
